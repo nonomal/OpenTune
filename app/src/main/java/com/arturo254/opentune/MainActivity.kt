@@ -222,7 +222,7 @@ import java.util.Locale
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.days
 import androidx.compose.animation.*
-import com.arturo254.opentune.ui.component.FullScreenLyricsScreen
+import com.arturo254.opentune.ui.component.Lyrics
 
 // El codigo original de la aplicacion pertenece a : Arturo Cervantes Galindo (Arturo254) Cualquier parecido es copia y pega de mi codigo original
 
@@ -332,6 +332,8 @@ class MainActivity : ComponentActivity() {
 
             var showFullscreenLyrics by remember { mutableStateOf(false) }
 
+
+            var sliderPosition by remember { mutableStateOf<Long?>(null) }
 
             val enableDynamicTheme by rememberPreference(DynamicThemeKey, defaultValue = true)
             val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
@@ -1050,6 +1052,8 @@ class MainActivity : ComponentActivity() {
                                         modifier = Modifier.fillMaxSize()
                                     )
 
+
+
                                     AnimatedVisibility(
                                         visible = showFullscreenLyrics,
                                         enter = slideInVertically(
@@ -1061,10 +1065,9 @@ class MainActivity : ComponentActivity() {
                                             animationSpec = tween(300)
                                         ) + fadeOut(animationSpec = tween(300))
                                     ) {
-                                        FullScreenLyricsScreen(
+                                        Lyrics(
                                             sliderPositionProvider = {
-                                                // Obtener posición del slider desde el player connection
-                                                null // o la lógica que tengas para obtener la posición del slider
+                                                sliderPosition
                                             },
                                             onNavigateBack = {
                                                 showFullscreenLyrics = false
