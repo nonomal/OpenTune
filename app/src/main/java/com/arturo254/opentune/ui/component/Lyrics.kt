@@ -9,10 +9,15 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColor
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -85,8 +90,10 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -98,6 +105,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -455,7 +463,7 @@ fun Lyrics(
                     }
                 } else Modifier
             )
-    ) {
+    )  {
         if (isFullscreen) {
             BackHandler(enabled = true) {
                 onNavigateBack?.invoke()
@@ -480,6 +488,7 @@ fun Lyrics(
                 }
             }
 
+
             AnimatedVisibility(
                 visible = showControls,
                 enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { -it },
@@ -489,17 +498,22 @@ fun Lyrics(
                     .statusBarsPadding()
                     .zIndex(2f)
             ) {
-                Surface(
+                // Nueva Card modificada según la imagen
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                    tonalElevation = 3.dp
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -513,148 +527,27 @@ fun Lyrics(
                                 )
                             ) {
                                 Icon(
-                                    painter = painterResource(R.drawable.arrow_back),
+                                    painter = painterResource(R.drawable.close),
                                     contentDescription = stringResource(R.string.back),
                                     tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
 
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (isSelectionModeActive) {
-                                    AssistChip(
-                                        onClick = { },
-                                        label = {
-                                            Text(
-                                                "${selectedIndices.size}/$maxSelectionLimit",
-                                                style = MaterialTheme.typography.labelMedium
-                                            )
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                painter = painterResource(R.drawable.check_circle),
-                                                contentDescription = null,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
+                            mediaMetadata?.let { metadata ->
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = metadata.title,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
 
-                                    IconButton(
-                                        onClick = {
-                                            isSelectionModeActive = false
-                                            selectedIndices.clear()
-                                        }
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.close),
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-
-                                    FilledTonalIconButton(
-                                        onClick = {
-                                            if (selectedIndices.isNotEmpty()) {
-                                                val sortedIndices = selectedIndices.sorted()
-                                                val selectedLyricsText = sortedIndices
-                                                    .mapNotNull { lines.getOrNull(it)?.text }
-                                                    .joinToString("\n")
-
-                                                if (selectedLyricsText.isNotBlank()) {
-                                                    shareDialogData = Triple(
-                                                        selectedLyricsText,
-                                                        mediaMetadata?.title ?: "",
-                                                        mediaMetadata?.artists?.joinToString { it.name } ?: ""
-                                                    )
-                                                    showShareDialog = true
-                                                }
-                                                isSelectionModeActive = false
-                                                selectedIndices.clear()
-                                            }
-                                        },
-                                        enabled = selectedIndices.isNotEmpty()
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.media3_icon_share),
-                                            contentDescription = stringResource(R.string.share_selected)
-                                        )
-                                    }
-                                } else {
-                                    IconButton(
-                                        onClick = { showImageOverlay = !showImageOverlay }
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(
-                                                if (showImageOverlay) R.drawable.close
-                                                else R.drawable.image
-                                            ),
-                                            contentDescription = if (showImageOverlay) "Ocultar imagen" else "Mostrar imagen",
-                                            tint = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-
-                                    IconButton(
-                                        onClick = {
-                                            mediaMetadata?.let { metadata ->
-                                                menuState.show {
-                                                    LyricsMenu(
-                                                        lyricsProvider = { lyricsEntity },
-                                                        mediaMetadataProvider = { metadata },
-                                                        onDismiss = menuState::dismiss
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.more_horiz),
-                                            contentDescription = stringResource(R.string.more_options),
-                                            tint = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        mediaMetadata?.let { metadata ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                AsyncImage(
-                                    model = metadata.thumbnailUrl,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                )
-
-                                Column(
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    AnimatedContent(
-                                        targetState = metadata.title,
-                                        transitionSpec = {
-                                            fadeIn(tween(300)) togetherWith fadeOut(tween(300))
-                                        },
-                                        label = "title"
-                                    ) { title ->
-                                        Text(
-                                            text = title,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-
-                                    Spacer(Modifier.height(2.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
 
                                     Text(
                                         text = metadata.artists.joinToString { it.name },
@@ -662,6 +555,66 @@ fun Lyrics(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+
+                            if (isSelectionModeActive) {
+                                IconButton(
+                                    onClick = {
+                                        if (selectedIndices.isNotEmpty()) {
+                                            val sortedIndices = selectedIndices.sorted()
+                                            val selectedLyricsText = sortedIndices
+                                                .mapNotNull { lines.getOrNull(it)?.text }
+                                                .joinToString("\n")
+
+                                            if (selectedLyricsText.isNotBlank()) {
+                                                shareDialogData = Triple(
+                                                    selectedLyricsText,
+                                                    mediaMetadata?.title ?: "",
+                                                    mediaMetadata?.artists?.joinToString { it.name } ?: ""
+                                                )
+                                                showShareDialog = true
+                                            }
+                                            isSelectionModeActive = false
+                                            selectedIndices.clear()
+                                        }
+                                    },
+                                    enabled = selectedIndices.isNotEmpty(),
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        containerColor = Color.Transparent
+                                    )
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.media3_icon_share),
+                                        contentDescription = stringResource(R.string.share_selected),
+                                        tint = if (selectedIndices.isNotEmpty())
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                    )
+                                }
+                            } else {
+                                IconButton(
+                                    onClick = {
+                                        mediaMetadata?.let { metadata ->
+                                            menuState.show {
+                                                LyricsMenu(
+                                                    lyricsProvider = { lyricsEntity },
+                                                    mediaMetadataProvider = { metadata },
+                                                    onDismiss = menuState::dismiss
+                                                )
+                                            }
+                                        }
+                                    },
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        containerColor = Color.Transparent
+                                    )
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.more_horiz),
+                                        contentDescription = stringResource(R.string.more_options),
+                                        tint = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                             }
@@ -1072,6 +1025,48 @@ fun Lyrics(
                             val isSelected = selectedIndices.contains(index)
                             val isCurrentLine = index == displayedCurrentLineIndex && isSynced
 
+                            // Configuración de animaciones
+                            val transition = updateTransition(isCurrentLine, label = "lyricLineTransition")
+
+                            // 1. Animación de escala (muy sutil)
+                            val scale by transition.animateFloat(
+                                transitionSpec = {
+                                    tween(
+                                        durationMillis = 300,
+                                        easing = FastOutSlowInEasing
+                                    )
+                                },
+                                label = "scale"
+                            ) { current -> if (current) 1.02f else 1f }
+
+                            // 2. Animación de color
+                            val textColorAnim by transition.animateColor(
+                                transitionSpec = { tween(durationMillis = 250) },
+                                label = "textColor"
+                            ) { current ->
+                                when {
+                                    current && isFullscreen -> MaterialTheme.colorScheme.primary
+                                    current -> MaterialTheme.colorScheme.primary
+                                    isSelected && isFullscreen -> MaterialTheme.colorScheme.onPrimaryContainer
+                                    isFullscreen -> MaterialTheme.colorScheme.onSurface
+                                    else -> textColor
+                                }
+                            }
+
+                            // 3. Animación de opacidad (sutil)
+                            val nonCurrentAlpha by transition.animateFloat(
+                                transitionSpec = { tween(durationMillis = 200) },
+                                label = "alpha"
+                            ) { current ->
+                                if (current) 1f else if (isFullscreen) 0.7f else 0.6f
+                            }
+
+                            // 4. Efecto de elevación sutil
+                            val elevation by transition.animateDp(
+                                transitionSpec = { tween(durationMillis = 200) },
+                                label = "elevation"
+                            ) { current -> if (current) 2.dp else 0.dp }
+
                             val itemModifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
@@ -1126,7 +1121,7 @@ fun Lyrics(
                                         isSelected && isSelectionModeActive ->
                                             MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                                         isCurrentLine && isFullscreen ->
-                                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+                                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)
                                         else -> Color.Transparent
                                     }
                                 )
@@ -1134,14 +1129,18 @@ fun Lyrics(
                                     horizontal = if (isFullscreen) 16.dp else 24.dp,
                                     vertical = 8.dp
                                 )
-                                .alpha(
-                                    when {
-                                        !isSynced -> 1f
-                                        isCurrentLine -> 1f
-                                        isSelectionModeActive && isSelected -> 1f
-                                        isSelectionModeActive && !isSelected && isFullscreen -> 0.38f
-                                        else -> if (isFullscreen) 0.6f else 0.5f
-                                    }
+                                .graphicsLayer {
+                                    scaleX = scale
+                                    scaleY = scale
+                                    alpha = if (isSelectionModeActive && !isSelected && isFullscreen) 0.38f
+                                    else nonCurrentAlpha
+                                }
+                                .shadow(
+                                    elevation = elevation,
+                                    shape = RoundedCornerShape(4.dp),
+                                    clip = true,
+                                    ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                 )
 
                             Text(
@@ -1149,26 +1148,26 @@ fun Lyrics(
                                 style = when {
                                     isCurrentLine && isFullscreen -> MaterialTheme.typography.titleLarge.copy(
                                         fontWeight = FontWeight.SemiBold,
-                                        fontSize = 20.sp
+                                        fontSize = 20.sp,
+                                        fontFamily = FontFamily.SansSerif,
+                                        letterSpacing = 0.15.sp
                                     )
                                     isSelected && isFullscreen -> MaterialTheme.typography.bodyLarge.copy(
                                         fontWeight = FontWeight.Medium,
-                                        fontSize = 16.sp
+                                        fontSize = 16.sp,
+                                        fontFamily = FontFamily.SansSerif
                                     )
                                     isFullscreen -> MaterialTheme.typography.bodyMedium.copy(
-                                        fontSize = 14.sp
+                                        fontSize = 14.sp,
+                                        fontFamily = FontFamily.SansSerif
                                     )
                                     else -> MaterialTheme.typography.bodyLarge.copy(
                                         fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.SansSerif
                                     )
                                 },
-                                color = when {
-                                    isCurrentLine && isFullscreen -> MaterialTheme.colorScheme.primary
-                                    isSelected && isFullscreen -> MaterialTheme.colorScheme.onPrimaryContainer
-                                    isFullscreen -> MaterialTheme.colorScheme.onSurface
-                                    else -> textColor
-                                },
+                                color = textColorAnim,
                                 textAlign = when (lyricsTextPosition) {
                                     LyricsPosition.LEFT -> TextAlign.Left
                                     LyricsPosition.CENTER -> TextAlign.Center
