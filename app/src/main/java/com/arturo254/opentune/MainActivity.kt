@@ -751,13 +751,6 @@ class MainActivity : ComponentActivity() {
                                                                     blendMode = BlendMode.DstIn
                                                                 )
                                                             },
-                                                        onError = { error ->
-                                                            // Log del error sin crashear la app
-                                                            Log.w(
-                                                                "PlayerBackground",
-                                                                "Error loading background image: ${error.result.throwable.message}"
-                                                            )
-                                                        }
                                                     )
                                                 }
                                             }
