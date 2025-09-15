@@ -18,8 +18,8 @@ android {
         applicationId = "com.Arturo254.opentune"
         minSdk = 24
         targetSdk = 35
-        versionCode = 118
-        versionName = "2.0.4"
+        versionCode = 119
+        versionName = "2.0.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -117,6 +117,7 @@ dependencies {
     implementation(libs.blurry)
     implementation(libs.material.ripple)
     implementation(libs.room.runtime.android)
+    implementation(libs.material.kolor)
     ksp(libs.room.compiler)
     implementation(libs.room.ktx)
 
