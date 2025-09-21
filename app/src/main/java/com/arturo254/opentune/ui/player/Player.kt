@@ -190,6 +190,25 @@ fun BottomSheetPlayer(
             else
                 MaterialTheme.colorScheme.onPrimary
     }
+
+
+
+    // Animaciones para efectos de fondo
+    var backgroundImageUrl by remember { mutableStateOf<String?>(null) }
+    val blurRadius by animateDpAsState(
+        targetValue = if (state.isExpanded && playerBackground == PlayerBackgroundStyle.BLUR) 150.dp else 0.dp,
+        animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+        label = "blurRadius"
+    )
+
+    val backgroundAlpha by animateFloatAsState(
+        targetValue = if (state.isExpanded && playerBackground != PlayerBackgroundStyle.DEFAULT) 1f else 0f,
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+        label = "backgroundAlpha"
+    )
+
+
+
     val useBlackBackground =
         remember(isSystemInDarkTheme, darkTheme, pureBlack) {
             val useDarkTheme =
@@ -235,6 +254,17 @@ fun BottomSheetPlayer(
     }
 
 
+    val overlayAlpha by animateFloatAsState(
+        targetValue = when {
+            !state.isExpanded -> 0f
+            playerBackground == PlayerBackgroundStyle.BLUR -> 0.3f
+            playerBackground == PlayerBackgroundStyle.GRADIENT && gradientColors.size >= 2 -> 0.2f
+            else -> 0f
+        },
+        animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+        label = "overlayAlpha"
+    )
+
     val playerButtonsStyle by rememberEnumPreference(
         key = PlayerButtonsStyleKey,
         defaultValue = PlayerButtonsStyle.DEFAULT
@@ -244,6 +274,9 @@ fun BottomSheetPlayer(
     }
 
     LaunchedEffect(mediaMetadata, playerBackground) {
+        // Actualizar URL de imagen para transiciones suaves
+        backgroundImageUrl = mediaMetadata?.thumbnailUrl
+
         if (useBlackBackground && playerBackground != PlayerBackgroundStyle.BLUR) {
             gradientColors = listOf(Color.Black, Color.Black)
         }
@@ -1148,43 +1181,83 @@ fun BottomSheetPlayer(
             }
         }
 
-        AnimatedVisibility(
-            visible = state.isExpanded,
-            enter = fadeIn(tween(1000)),
-            exit = fadeOut()
+// Efectos de fondo animados
+        Box(
+            modifier = Modifier.fillMaxSize()
         ) {
-            if (playerBackground == PlayerBackgroundStyle.BLUR) {
+            // Fondo con imagen difuminada
+            AnimatedVisibility(
+                visible = playerBackground == PlayerBackgroundStyle.BLUR && backgroundImageUrl != null,
+                enter = fadeIn(tween(600)),
+                exit = fadeOut(tween(400))
+            ) {
                 AsyncImage(
-                    model = mediaMetadata?.thumbnailUrl,
+                    model = backgroundImageUrl,
                     contentDescription = null,
-                    contentScale = ContentScale.FillBounds,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
-                        .blur(150.dp)
-                )
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f))
-                )
-            } else if (playerBackground == PlayerBackgroundStyle.GRADIENT && gradientColors.size >= 2) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Brush.verticalGradient(gradientColors))
+                        .blur(blurRadius)
+                        .alpha(backgroundAlpha)
                 )
             }
 
+            // Fondo con gradiente animado
+            AnimatedVisibility(
+                visible = playerBackground == PlayerBackgroundStyle.GRADIENT && gradientColors.size >= 2,
+                enter = fadeIn(tween(800)),
+                exit = fadeOut(tween(600))
+            ) {
+                val animatedGradientColors = gradientColors.map { color ->
+                    androidx.compose.animation.animateColorAsState(
+                        targetValue = color,
+                        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+                        label = "gradientColor"
+                    ).value
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .alpha(backgroundAlpha)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = if (animatedGradientColors.isNotEmpty()) animatedGradientColors else gradientColors
+                            )
+                        )
+                )
+            }
+
+            // Overlay oscuro animado
+            AnimatedVisibility(
+                visible = overlayAlpha > 0f,
+                enter = fadeIn(tween(500)),
+                exit = fadeOut(tween(300))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = overlayAlpha))
+                )
+            }
+
+            // Overlay adicional para letras
             if (playerBackground != PlayerBackgroundStyle.DEFAULT && showLyrics) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f))
+                        .background(
+                            Color.Black.copy(
+                                alpha = animateFloatAsState(
+                                    targetValue = if (state.isExpanded) 0.4f else 0f,
+                                    animationSpec = tween(durationMillis = 500),
+                                    label = "lyricsOverlay"
+                                ).value
+                            )
+                        )
                 )
             }
         }
-//
         when (LocalConfiguration.current.orientation) {
             Configuration.ORIENTATION_LANDSCAPE -> {
                 Row(
